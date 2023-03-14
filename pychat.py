@@ -4,6 +4,7 @@ import datetime
 
 from rich.console import Console
 from rich.markdown import Markdown
+
 console = Console()
 
 system_role = "wiki"
@@ -24,7 +25,8 @@ def report(content: str, role: str = "openai", end='\n'):
         color = "green"
     elif role == "client":
         color = "blue"
-    console.print(f"[bold {color}][{now}] @{role} > [/bold {color}] {content}", end=end)
+    console.print(
+        f"[bold {color}][{now}] @{role} > [/bold {color}] {content}", end=end)
 
 
 def parse_command(content: str):
@@ -60,7 +62,7 @@ def get_response(question: str, system_role: str = "wiki"):
     choices = res["choices"]
     for (i, choice) in enumerate(choices):
         md = Markdown(choice["message"]["content"])
-        report("[[italic]Response " + str(i) + "[/]]: ")
+        report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
         console.print(md)
     used_tokens = res["usage"]["total_tokens"]
     global total_tokens
