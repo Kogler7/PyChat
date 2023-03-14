@@ -1,16 +1,15 @@
 import os
 import json
-import rich
 import datetime
 
 from rich.console import Console
+from rich.markdown import Markdown
 console = Console()
 
 system_role = "wiki"
 total_tokens = 0
 exit_flag = False
-
-key_path = "D:\CodeBase\PythonScripts\PyChat\wjy.key"
+key_path = os.path.join(os.path.dirname(__file__), "wjy.key")
 
 
 def read_key(path: str):
@@ -60,7 +59,9 @@ def get_response(question: str, system_role: str = "wiki"):
     res = json.loads(res)
     choices = res["choices"]
     for (i, choice) in enumerate(choices):
-        report("[[italic]Response " + str(i) + "[/]]: " + choice["message"]["content"])
+        md = Markdown(choice["message"]["content"])
+        report("[[italic]Response " + str(i) + "[/]]: ")
+        console.print(md)
     used_tokens = res["usage"]["total_tokens"]
     global total_tokens
     total_tokens += used_tokens
