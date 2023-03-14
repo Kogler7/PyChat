@@ -12,6 +12,8 @@ total_tokens = 0
 exit_flag = False
 key_path = None
 log_path = None
+in_context = False
+assist_list = []
 
 
 def read_key(path: str):
@@ -85,6 +87,23 @@ def parse_command(content: str):
         if system_role == "":
             system_role = "wiki"
         report("System role: " + system_role, "system")
+    elif command[:7] == "context":
+        command = command[8:]
+        global in_context
+        if "on" in command:
+            in_context = True
+            assist_list.clear()
+        elif "off" in command:
+            in_context = False
+            assist_list.clear()
+        report("Context mode: " + ("on" if in_context else "off"), "system")
+    elif command[:4] == "help":
+        report("Available commands:", "system")
+        report("  \\role [role] - Set system role", "system")
+        report("  \\exit - Exit the chatbot", "system")
+        report("  \\context [on/off] - Turn on/off context mode", "system") 
+    else:
+        report("Invalid command", "system")
 
 
 def get_response(question: str, system_role: str = "wiki"):
@@ -97,7 +116,7 @@ def get_response(question: str, system_role: str = "wiki"):
             messages=[
                 {"role": "system", "content": system_role},
                 {"role": "user", "content": question}
-            ]
+            ] + assist_list,
         )
     res = json.dumps(rsp, indent=4, ensure_ascii=False)
     res = json.loads(res)
@@ -107,6 +126,8 @@ def get_response(question: str, system_role: str = "wiki"):
         report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
         console.print(Markdown(content))
         log_print(content, role="OpenAI")
+        if in_context:
+            assist_list.append({"role": "assistant", "content": content})
     used_tokens = res["usage"]["total_tokens"]
     global total_tokens
     total_tokens += used_tokens
