@@ -10,12 +10,21 @@ console = Console()
 system_role = "wiki"
 total_tokens = 0
 exit_flag = False
-key_path = os.path.join(os.path.dirname(__file__), "wjy.key")
+key_path = None
+log_path = None
 
 
 def read_key(path: str):
     with open(path, "r") as f:
         return f.read().strip()
+
+
+def log_print(content: str, end: str='\r\n'):
+    console.print(content, end=end)
+    if log_path is not None:
+        with open(log_path, 'a+') as f:
+            f.write(content)
+            f.write(end)
 
 
 def report(content: str, role: str = "openai", end='\n'):
@@ -25,9 +34,37 @@ def report(content: str, role: str = "openai", end='\n'):
         color = "green"
     elif role == "client":
         color = "blue"
-    console.print(
+    log_print(
         f"[bold {color}][{now}] @{role} > [/bold {color}] {content}", end=end)
 
+
+def initialize():
+    for dir, dirname, names in os.walk(os.path.dirname(__file__)):
+        for name in names:
+            if ".key" in name:
+                global key_path
+                key_path = os.path.join(dir, name)
+                break
+
+    if key_path is None:
+        console.print("[bold red]No key file found![\]")
+        exit(1)
+
+    now = datetime.datetime.now().strftime("%H-%M-%S")
+    global log_path
+    log_path = os.path.join(os.path.dirname(__file__), "log")
+    if not os.path.exists(log_path):
+        os.mkdir(log_path)
+    log_path = os.path.join(log_path, now + ".log")
+
+    report("[bold]Welcome to OpenAI Chatbot![/] Type '\\exit' to exit.", "system")
+
+    with console.status("[bold green]Loading openAI..."):
+        import openai
+        openai.api_key = read_key(key_path)
+
+    report(f"Using key file: [underline]{key_path}[/]", "system")
+    report(f"Chat will be recorded in file: [underline]{log_path}[/]", "system")
 
 def parse_command(content: str):
     command = content[1:]
@@ -50,6 +87,7 @@ def parse_command(content: str):
 def get_response(question: str, system_role: str = "wiki"):
     rsp = None
     with console.status("[bold green]Generating answer..."):
+        import openai
         rsp = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -61,9 +99,13 @@ def get_response(question: str, system_role: str = "wiki"):
     res = json.loads(res)
     choices = res["choices"]
     for (i, choice) in enumerate(choices):
-        md = Markdown(choice["message"]["content"])
+        content = choice["message"]["content"]
         report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
-        console.print(md)
+        console.print(Markdown(content))
+        if log_path is not None:
+            with open(log_path, 'a+') as f:
+                f.write(content)
+                f.write("\r\n")
     used_tokens = res["usage"]["total_tokens"]
     global total_tokens
     total_tokens += used_tokens
@@ -71,19 +113,15 @@ def get_response(question: str, system_role: str = "wiki"):
         f"[italic]Tokens used/total: {used_tokens}/{total_tokens}[/]", "system")
 
 
-report("Welcome to OpenAI Chatbot! Type '\\exit' to exit.", "system")
+if __name__ == "__main__":
+    initialize()
 
-with console.status("[bold green]Loading openAI...") as status:
-    import openai
-    openai.api_key = read_key(key_path)
-
-
-while True:
-    if exit_flag:
-        break
-    report("", "client", end="")
-    client_input = input()
-    if client_input.startswith('\\'):
-        parse_command(client_input)
-    else:
-        get_response(client_input, system_role)
+    while True:
+        if exit_flag:
+            break
+        report("", "client", end="")
+        client_input = input()
+        if client_input.startswith('\\'):
+            parse_command(client_input)
+        else:
+            get_response(client_input, system_role)
