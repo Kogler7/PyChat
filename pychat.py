@@ -19,10 +19,11 @@ def read_key(path: str):
         return f.read().strip()
 
 
-def log_print(content: str, end: str='\r\n'):
-    console.print(content, end=end)
+def log_print(content: str, role: str, end: str = '\r\n'):
     if log_path is not None:
+        now = datetime.datetime.now().strftime("%H:%M:%S")
         with open(log_path, 'a+') as f:
+            f.write(f"[{now}] {role} > ")
             f.write(content)
             f.write(end)
 
@@ -34,7 +35,7 @@ def report(content: str, role: str = "openai", end='\n'):
         color = "green"
     elif role == "client":
         color = "blue"
-    log_print(
+    console.print(
         f"[bold {color}][{now}] @{role} > [/bold {color}] {content}", end=end)
 
 
@@ -50,7 +51,7 @@ def initialize():
         console.print("[bold red]No key file found![\]")
         exit(1)
 
-    now = datetime.datetime.now().strftime("%H-%M-%S")
+    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     global log_path
     log_path = os.path.join(os.path.dirname(__file__), "log")
     if not os.path.exists(log_path):
@@ -64,7 +65,9 @@ def initialize():
         openai.api_key = read_key(key_path)
 
     report(f"Using key file: [underline]{key_path}[/]", "system")
-    report(f"Chat will be recorded in file: [underline]{log_path}[/]", "system")
+    report(
+        f"Chat will be recorded in file: [underline]{log_path}[/]", "system")
+
 
 def parse_command(content: str):
     command = content[1:]
@@ -86,6 +89,7 @@ def parse_command(content: str):
 
 def get_response(question: str, system_role: str = "wiki"):
     rsp = None
+    log_print(question, role="Client")
     with console.status("[bold green]Generating answer..."):
         import openai
         rsp = openai.ChatCompletion.create(
@@ -102,10 +106,7 @@ def get_response(question: str, system_role: str = "wiki"):
         content = choice["message"]["content"]
         report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
         console.print(Markdown(content))
-        if log_path is not None:
-            with open(log_path, 'a+') as f:
-                f.write(content)
-                f.write("\r\n")
+        log_print(content, role="OpenAI")
     used_tokens = res["usage"]["total_tokens"]
     global total_tokens
     total_tokens += used_tokens
