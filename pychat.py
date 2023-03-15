@@ -154,7 +154,7 @@ def get_response(question: str, system_role: str = "wiki"):
         log_print(question, role="Client")
         messages = [{"role": "system", "content": system_role}]
         if with_context:
-            message += assist_list
+            messages += assist_list
         messages += [{"role": "user", "content": question}]
         with console.status("[bold green]Generating answer..."):
             import openai
