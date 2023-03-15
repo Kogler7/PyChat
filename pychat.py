@@ -18,6 +18,7 @@ context_locked = False
 temperature = 0.5
 max_tokens = 2000
 assist_list = []
+record_list = []
 
 
 def read_key(path: str):
@@ -42,7 +43,8 @@ def report(content: str, role: str = "openai", end='\n'):
     elif role == "client":
         color = "blue"
     console.print(
-        f"[bold {color}][{now}] @{role} > [/bold {color}] {content}", end=end)
+        f"[bold {color}][{now}] @{role} > [/bold {color}] {content}", end=end
+    )
 
 
 def initialize():
@@ -72,7 +74,8 @@ def initialize():
 
     report(f"Using key file: [underline]{key_path}[/]", "system")
     report(
-        f"Chat will be recorded in file: [underline]{log_path}[/]", "system")
+        f"Chat will be recorded in file: [underline]{log_path}[/]", "system"
+    )
 
 
 def parse_command(content: str):
@@ -121,8 +124,8 @@ def parse_command(content: str):
         else:
             max_tokens = int(command)
         report("Max tokens: " + str(max_tokens), "system")
-    elif command[:7] == "context":
-        command = command[8:]
+    elif command[:3] == "ctx":
+        command = command[4:]
         if "on" in command:
             with_context = True
         elif "new" in command:
@@ -135,6 +138,21 @@ def parse_command(content: str):
         elif "unlock" in command:
             context_locked = False
         report("Context mode: " + ("on" if with_context else "off"), "system")
+    elif command[:4] == "with":
+        # with context
+        command = command[5:]
+        index = command.strip().split(' ')[0]
+        question = command[len(index):].strip()
+        if "last" in index:
+            index = -1
+        else:
+            index = int(index)
+        try:
+            record = record_list[index]
+            report(f"Assist with record {index}...", "system")
+            get_response(question, assist=record)
+        except Exception as e:
+            report("Error: " + str(e), "system")
     elif command[:4] == "help":
         report("Available commands:", "system")
         report("  \\role [role] - Set system role", "system")
@@ -142,18 +160,21 @@ def parse_command(content: str):
         report("  \\tokens [max_tokens] - Set max tokens", "system")
         report("  \\exit - Exit the chatbot", "system")
         report("  \\mode - Show current settings", "system")
-        report("  \\context [on/off/new] - Turn on/off context mode", "system")
+        report("  \\ctx [on/off/new] - Turn on/off context mode", "system")
+        report("  \\with [index] [question] - Assist with a record", "system")
     else:
         report("Invalid command", "system")
 
 
-def get_response(question: str, system_role: str = "wiki"):
+def get_response(question: str, role: str = None, assist=None):
     try:
         rsp = None
         start_time = datetime.datetime.now()
         log_print(question, role="Client")
-        messages = [{"role": "system", "content": system_role}]
-        if with_context:
+        messages = [{"role": "system", "content": role if role is not None else system_role}]
+        if assist is not None:
+            messages += assist
+        elif with_context:
             messages += assist_list
         messages += [{"role": "user", "content": question}]
         with console.status("[bold green]Generating answer..."):
@@ -169,9 +190,14 @@ def get_response(question: str, system_role: str = "wiki"):
         time_elapsed = datetime.datetime.now() - start_time
         time_elapsed = int(time_elapsed.total_seconds())
         content = choices[0]["message"]["content"]
-        report(f"[italic][Time used: [bold green]{time_elapsed}s[/bold green]][/italic]: ")
+        report(
+            f"[italic][Chat <{len(record_list)}>, Time used: [bold green]{time_elapsed}s[/bold green]][/italic]: ")
         console.print(Markdown(content))
         log_print(content, role="OpenAI")
+        record_list.append([
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": content}
+        ])
         if with_context and not context_locked:
             assist_list.append({"role": "user", "content": question})
             assist_list.append({"role": "assistant", "content": content})
@@ -181,7 +207,7 @@ def get_response(question: str, system_role: str = "wiki"):
         report(
             f"[italic]Tokens used/total: {used_tokens}/{total_tokens}[/]", "system")
     except Exception as e:
-        report("Error: " + str(e), "system")
+        report("[red bold]Error: [/]" + str(e), "system")
         log_print(str(e), role="Error")
 
 
