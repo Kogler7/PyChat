@@ -59,9 +59,11 @@ def initialize():
         console.print("[bold red]No key file found![\]")
         exit(1)
 
-    now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    date = datetime.datetime.now().strftime("%Y%m%d")
+    now = datetime.datetime.now().strftime("%H%M%S")
     global log_path
     log_path = os.path.join(os.path.dirname(__file__), "log")
+    log_path = os.path.join(log_path, date)
     if not os.path.exists(log_path):
         os.mkdir(log_path)
     log_path = os.path.join(log_path, now + ".log")
@@ -149,7 +151,7 @@ def parse_command(content: str):
             index = int(index)
         try:
             record = record_list[index]
-            report(f"Assist with record {index}...", "system")
+            report(f"Assist with record {index} ...", "system")
             get_response(question, assist=record)
         except Exception as e:
             report("Error: " + str(e), "system")
@@ -191,7 +193,7 @@ def get_response(question: str, role: str = None, assist=None):
         time_elapsed = int(time_elapsed.total_seconds())
         content = choices[0]["message"]["content"]
         report(
-            f"[italic][Chat <{len(record_list)}>, Time used: [bold green]{time_elapsed}s[/bold green]][/italic]: ")
+            f"[italic][Record <{len(record_list)}>, Time used: [bold green]{time_elapsed}s[/bold green]][/italic]: ")
         console.print(Markdown(content))
         log_print(content, role="OpenAI")
         record_list.append([
