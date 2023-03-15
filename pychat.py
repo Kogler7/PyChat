@@ -7,12 +7,15 @@ from rich.markdown import Markdown
 
 console = Console()
 
+model = "gpt-3.5-turbo"
 system_role = "wiki"
 total_tokens = 0
 exit_flag = False
 key_path = None
 log_path = None
 in_context = False
+temperature = 0.5
+max_tokens = 2000
 assist_list = []
 
 
@@ -79,6 +82,7 @@ def parse_command(content: str):
         report("Exiting...", "system")
     elif command[:4] == "role":
         command = command[5:]
+        global system_role
         if command == "":
             report("Set system role: ", "system", end="")
             system_role = input()
@@ -87,6 +91,24 @@ def parse_command(content: str):
         if system_role == "":
             system_role = "wiki"
         report("System role: " + system_role, "system")
+    elif command[:4] == "temp":
+        command = command[5:]
+        global temperature
+        if command == "":
+            report("Set temperature: ", "system", end="")
+            temperature = float(input())
+        else:
+            temperature = float(command)
+        report("Temperature: " + str(temperature), "system")
+    elif command[:6] == "tokens":
+        command = command[7:]
+        global max_tokens
+        if command == "":
+            report("Set max tokens: ", "system", end="")
+            max_tokens = int(input())
+        else:
+            max_tokens = int(command)
+        report("Max tokens: " + str(max_tokens), "system")
     elif command[:7] == "context":
         command = command[8:]
         global in_context
@@ -100,39 +122,49 @@ def parse_command(content: str):
     elif command[:4] == "help":
         report("Available commands:", "system")
         report("  \\role [role] - Set system role", "system")
+        report("  \\temp [temperature] - Set temperature", "system")
+        report("  \\tokens [max_tokens] - Set max tokens", "system")
         report("  \\exit - Exit the chatbot", "system")
-        report("  \\context [on/off] - Turn on/off context mode", "system") 
+        report("  \\context [on/off] - Turn on/off context mode", "system")
     else:
         report("Invalid command", "system")
 
 
 def get_response(question: str, system_role: str = "wiki"):
-    rsp = None
-    log_print(question, role="Client")
-    with console.status("[bold green]Generating answer..."):
-        import openai
-        rsp = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": system_role},
-                {"role": "user", "content": question}
-            ] + assist_list,
-        )
-    res = json.dumps(rsp, indent=4, ensure_ascii=False)
-    res = json.loads(res)
-    choices = res["choices"]
-    for (i, choice) in enumerate(choices):
-        content = choice["message"]["content"]
-        report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
-        console.print(Markdown(content))
-        log_print(content, role="OpenAI")
-        if in_context:
-            assist_list.append({"role": "assistant", "content": content})
-    used_tokens = res["usage"]["total_tokens"]
-    global total_tokens
-    total_tokens += used_tokens
-    report(
-        f"[italic]Tokens used/total: {used_tokens}/{total_tokens}[/]", "system")
+    try:
+        rsp = None
+        log_print(question, role="Client")
+        with console.status("[bold green]Generating answer..."):
+            import openai
+            rsp = openai.ChatCompletion.create(
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                messages=[
+                    {"role": "system", "content": system_role},
+                ] + assist_list + [
+                    {"role": "user", "content": question}
+                ],
+            )
+        res = json.dumps(rsp, indent=4, ensure_ascii=False)
+        res = json.loads(res)
+        choices = res["choices"]
+        for (i, choice) in enumerate(choices):
+            content = choice["message"]["content"]
+            report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
+            console.print(Markdown(content))
+            log_print(content, role="OpenAI")
+            if in_context:
+                assist_list.append({"role": "user", "content": question})
+                assist_list.append({"role": "assistant", "content": content})
+        used_tokens = res["usage"]["total_tokens"]
+        global total_tokens
+        total_tokens += used_tokens
+        report(
+            f"[italic]Tokens used/total: {used_tokens}/{total_tokens}[/]", "system")
+    except Exception as e:
+        report("Error: " + str(e), "system")
+        log_print(str(e), role="Error")
 
 
 if __name__ == "__main__":
