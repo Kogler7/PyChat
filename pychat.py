@@ -8,7 +8,7 @@ from rich.markdown import Markdown
 console = Console()
 
 model = "gpt-3.5-turbo"
-system_role = "wiki"
+system_role = "assistant"
 total_tokens = 0
 exit_flag = False
 key_path = None
@@ -69,6 +69,7 @@ def initialize():
     log_path = os.path.join(log_path, now + ".log")
 
     report("[bold]Welcome to OpenAI Chatbot![/] Type '\\exit' to exit.", "system")
+    report("Commands start with ‘\\’. Type '\\help' to see available commands.", "system")
 
     with console.status("[bold green]Loading openAI..."):
         import openai
@@ -94,12 +95,12 @@ def parse_command(content: str):
     if command[:4] == "mode":
         # print all settings
         report("Current settings:", "system")
-        report(f"  Model: {model}", "system")
-        report(f"  System role: {system_role}", "system")
-        report(f"  Temperature: {temperature}", "system")
-        report(f"  Max tokens: {max_tokens}", "system")
-        report(f"  Context mode: {'on' if with_context else 'off'}", "system")
-        report(f"  Context locked: {context_locked}", "system")
+        report(f"    Model:             {model}", "system")
+        report(f"    System role:       {system_role}", "system")
+        report(f"    Temperature:       {temperature}", "system")
+        report(f"    Max tokens:        {max_tokens}", "system")
+        report(f"    Context mode:      {'on' if with_context else 'off'}", "system")
+        report(f"    Context locked:    {context_locked}", "system")
     elif command[:4] == "role":
         command = command[5:]
         if command == "":
@@ -118,8 +119,8 @@ def parse_command(content: str):
         else:
             temperature = float(command)
         report("Temperature: " + str(temperature), "system")
-    elif command[:6] == "tokens":
-        command = command[7:]
+    elif command[:3] == "max":
+        command = command[4:]
         if command == "":
             report("Set max tokens: ", "system", end="")
             max_tokens = int(input())
@@ -157,13 +158,13 @@ def parse_command(content: str):
             report("Error: " + str(e), "system")
     elif command[:4] == "help":
         report("Available commands:", "system")
-        report("  \\role [role] - Set system role", "system")
-        report("  \\temp [temperature] - Set temperature", "system")
-        report("  \\tokens [max_tokens] - Set max tokens", "system")
-        report("  \\exit - Exit the chatbot", "system")
-        report("  \\mode - Show current settings", "system")
-        report("  \\ctx [on/off/new] - Turn on/off context mode", "system")
-        report("  \\with [index] [question] - Assist with a record", "system")
+        report("    \\exit  - Exit the chatbot", "system")
+        report("    \\mode  - Show current settings", "system")
+        report("    \\role \[role desc]         - Set system role", "system")
+        report("    \\temp \[temperature]       - Set temperature", "system")
+        report("    \\with \[index] \[question]  - Assist with a record", "system")
+        report("    \\max  \[max_tokens]        - Set max tokens", "system")
+        report("    \\ctx  \[on/off/new]        - Turn on/off context mode", "system")
     else:
         report("Invalid command", "system")
 
