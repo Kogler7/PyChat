@@ -114,10 +114,11 @@ def parse_command(content: str):
         global in_context
         if "on" in command:
             in_context = True
+        elif "new" in command:
+            in_context = True
             assist_list.clear()
         elif "off" in command:
             in_context = False
-            assist_list.clear()
         report("Context mode: " + ("on" if in_context else "off"), "system")
     elif command[:4] == "help":
         report("Available commands:", "system")
@@ -125,7 +126,7 @@ def parse_command(content: str):
         report("  \\temp [temperature] - Set temperature", "system")
         report("  \\tokens [max_tokens] - Set max tokens", "system")
         report("  \\exit - Exit the chatbot", "system")
-        report("  \\context [on/off] - Turn on/off context mode", "system")
+        report("  \\context [on/off/new] - Turn on/off context mode", "system")
     else:
         report("Invalid command", "system")
 
