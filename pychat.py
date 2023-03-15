@@ -13,7 +13,8 @@ total_tokens = 0
 exit_flag = False
 key_path = None
 log_path = None
-in_context = False
+with_context = False
+context_locked = False
 temperature = 0.5
 max_tokens = 2000
 assist_list = []
@@ -75,14 +76,27 @@ def initialize():
 
 
 def parse_command(content: str):
+    global system_role
+    global temperature
+    global max_tokens
+    global with_context
+    global context_locked
     command = content[1:]
     if command == "exit":
         global exit_flag
         exit_flag = True
         report("Exiting...", "system")
+    if command[:4] == "mode":
+        # print all settings
+        report("Current settings:", "system")
+        report(f"  Model: {model}", "system")
+        report(f"  System role: {system_role}", "system")
+        report(f"  Temperature: {temperature}", "system")
+        report(f"  Max tokens: {max_tokens}", "system")
+        report(f"  Context mode: {'on' if with_context else 'off'}", "system")
+        report(f"  Context locked: {context_locked}", "system")
     elif command[:4] == "role":
         command = command[5:]
-        global system_role
         if command == "":
             report("Set system role: ", "system", end="")
             system_role = input()
@@ -93,7 +107,6 @@ def parse_command(content: str):
         report("System role: " + system_role, "system")
     elif command[:4] == "temp":
         command = command[5:]
-        global temperature
         if command == "":
             report("Set temperature: ", "system", end="")
             temperature = float(input())
@@ -102,7 +115,6 @@ def parse_command(content: str):
         report("Temperature: " + str(temperature), "system")
     elif command[:6] == "tokens":
         command = command[7:]
-        global max_tokens
         if command == "":
             report("Set max tokens: ", "system", end="")
             max_tokens = int(input())
@@ -111,21 +123,25 @@ def parse_command(content: str):
         report("Max tokens: " + str(max_tokens), "system")
     elif command[:7] == "context":
         command = command[8:]
-        global in_context
         if "on" in command:
-            in_context = True
+            with_context = True
         elif "new" in command:
-            in_context = True
+            with_context = True
             assist_list.clear()
         elif "off" in command:
-            in_context = False
-        report("Context mode: " + ("on" if in_context else "off"), "system")
+            with_context = False
+        elif "lock" in command:
+            context_locked = True
+        elif "unlock" in command:
+            context_locked = False
+        report("Context mode: " + ("on" if with_context else "off"), "system")
     elif command[:4] == "help":
         report("Available commands:", "system")
         report("  \\role [role] - Set system role", "system")
         report("  \\temp [temperature] - Set temperature", "system")
         report("  \\tokens [max_tokens] - Set max tokens", "system")
         report("  \\exit - Exit the chatbot", "system")
+        report("  \\mode - Show current settings", "system")
         report("  \\context [on/off/new] - Turn on/off context mode", "system")
     else:
         report("Invalid command", "system")
@@ -134,31 +150,32 @@ def parse_command(content: str):
 def get_response(question: str, system_role: str = "wiki"):
     try:
         rsp = None
+        start_time = datetime.datetime.now()
         log_print(question, role="Client")
+        messages = [{"role": "system", "content": system_role}]
+        if with_context:
+            message += assist_list
+        messages += [{"role": "user", "content": question}]
         with console.status("[bold green]Generating answer..."):
             import openai
             rsp = openai.ChatCompletion.create(
                 model=model,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                messages=[
-                    {"role": "system", "content": system_role},
-                ] + assist_list + [
-                    {"role": "user", "content": question}
-                ],
+                messages=messages,
             )
-        res = json.dumps(rsp, indent=4, ensure_ascii=False)
-        res = json.loads(res)
-        choices = res["choices"]
-        for (i, choice) in enumerate(choices):
-            content = choice["message"]["content"]
-            report(f"[[italic]Response {i+1}/{len(choices)}[/]]: ")
-            console.print(Markdown(content))
-            log_print(content, role="OpenAI")
-            if in_context:
-                assist_list.append({"role": "user", "content": question})
-                assist_list.append({"role": "assistant", "content": content})
-        used_tokens = res["usage"]["total_tokens"]
+        response = json.loads(json.dumps(rsp, indent=4, ensure_ascii=False))
+        choices = response["choices"]
+        time_elapsed = datetime.datetime.now() - start_time
+        time_elapsed = int(time_elapsed.total_seconds())
+        content = choices[0]["message"]["content"]
+        report(f"[italic][Time used: [bold green]{time_elapsed}s[/bold green]][/italic]: ")
+        console.print(Markdown(content))
+        log_print(content, role="OpenAI")
+        if with_context and not context_locked:
+            assist_list.append({"role": "user", "content": question})
+            assist_list.append({"role": "assistant", "content": content})
+        used_tokens = response["usage"]["total_tokens"]
         global total_tokens
         total_tokens += used_tokens
         report(
