@@ -70,9 +70,9 @@ def initialize():
 
     report("[bold]Welcome to OpenAI Chatbot! Type '\\exit' to exit.", "system")
     report("Commands start with ‘\\’. Type '\\help' to see available commands.", "system")
-    report(f"Using key file: [underline]{key_path}.[/]", "system")
+    report(f"Using key file: [underline]{key_path}[/].", "system")
     report(
-        f"Chat will be recorded in file: [underline]{log_path}.[/]", "system"
+        f"Chat will be recorded in file: [underline]{log_path}[/].", "system"
     )
 
     with console.status("[bold green]Loading openAI..."):
@@ -166,7 +166,7 @@ def parse_command(content: str):
             report(f"Assist with record {index} ...", "system")
             get_response(question, assist=record)
         except Exception as e:
-            report("Error: " + str(e), "system")
+            report("[red bold]Error: [/]" + str(e), "system")
     elif command[:4] == "help":
         report("Available commands:", "system")
         report("    \\exit  - Exit the chatbot", "system")
