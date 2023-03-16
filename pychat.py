@@ -75,9 +75,9 @@ def initialize():
         import openai
         openai.api_key = read_key(key_path)
 
-    report(f"Using key file: [underline]{key_path}[/]", "system")
+    report(f"Using key file: [underline]{key_path}.[/]", "system")
     report(
-        f"Chat will be recorded in file: [underline]{log_path}[/]", "system"
+        f"Chat will be recorded in file: [underline]{log_path}.[/]", "system"
     )
 
 
@@ -140,12 +140,20 @@ def parse_command(content: str):
             context_locked = True
         elif "unlock" in command:
             context_locked = False
+        # ctx save/load
         report("Context mode: " + ("on" if with_context else "off"), "system")
+    elif command[:3] == "rcd":
+        command = command[4:]
+        # rcd save/load
+        pass
     elif command[:4] == "with":
         # with context
         command = command[5:]
         index = command.strip().split(' ')[0]
         question = command[len(index):].strip()
+        if "ctx" in index:
+            report("Assist with context ...", "system")
+            get_response(question, assist=assist_list)
         if "last" in index:
             index = -1
         else:
