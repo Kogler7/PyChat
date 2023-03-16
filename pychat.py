@@ -68,17 +68,19 @@ def initialize():
         os.mkdir(log_path)
     log_path = os.path.join(log_path, now + ".log")
 
-    report("[bold]Welcome to OpenAI Chatbot![/] Type '\\exit' to exit.", "system")
+    report("[bold]Welcome to OpenAI Chatbot! Type '\\exit' to exit.", "system")
     report("Commands start with ‘\\’. Type '\\help' to see available commands.", "system")
-
-    with console.status("[bold green]Loading openAI..."):
-        import openai
-        openai.api_key = read_key(key_path)
-
     report(f"Using key file: [underline]{key_path}.[/]", "system")
     report(
         f"Chat will be recorded in file: [underline]{log_path}.[/]", "system"
     )
+
+    with console.status("[bold green]Loading openAI..."):
+        import openai
+        openai.api_key = read_key(key_path)
+    report(
+        "[bold]Hello! I'm available now. How can I help you? "+
+        "You can [yellow]type your question below[/].")
 
 
 def parse_command(content: str):
@@ -99,7 +101,8 @@ def parse_command(content: str):
         report(f"    System role:       {system_role}", "system")
         report(f"    Temperature:       {temperature}", "system")
         report(f"    Max tokens:        {max_tokens}", "system")
-        report(f"    Context mode:      {'on' if with_context else 'off'}", "system")
+        report(
+            f"    Context mode:      {'on' if with_context else 'off'}", "system")
         report(f"    Context locked:    {context_locked}", "system")
     elif command[:4] == "role":
         command = command[5:]
@@ -170,9 +173,11 @@ def parse_command(content: str):
         report("    \\mode  - Show current settings", "system")
         report("    \\role \[role desc]         - Set system role", "system")
         report("    \\temp \[temperature]       - Set temperature", "system")
-        report("    \\with \[index] \[question]  - Assist with a record", "system")
+        report(
+            "    \\with \[index] \[question]  - Assist with a record", "system")
         report("    \\max  \[max_tokens]        - Set max tokens", "system")
-        report("    \\ctx  \[on/off/new]        - Turn on/off context mode", "system")
+        report(
+            "    \\ctx  \[on/off/new]        - Turn on/off context mode", "system")
     else:
         report("Invalid command", "system")
 
@@ -182,7 +187,8 @@ def get_response(question: str, role: str = None, assist=None):
         rsp = None
         start_time = datetime.datetime.now()
         log_print(question, role="Client")
-        messages = [{"role": "system", "content": role if role is not None else system_role}]
+        messages = [
+            {"role": "system", "content": role if role is not None else system_role}]
         if assist is not None:
             messages += assist
         elif with_context:
@@ -202,7 +208,7 @@ def get_response(question: str, role: str = None, assist=None):
         time_elapsed = int(time_elapsed.total_seconds())
         content = choices[0]["message"]["content"]
         report(
-            f"[italic][Record <{len(record_list)}>, Time used: [bold green]{time_elapsed}s[/bold green]][/italic]: ")
+            f"[bold]Record <{len(record_list)}>[/]: ")
         console.print(Markdown(content))
         log_print(content, role="OpenAI")
         record_list.append([
@@ -216,7 +222,10 @@ def get_response(question: str, role: str = None, assist=None):
         global total_tokens
         total_tokens += used_tokens
         report(
-            f"[italic]Tokens used/total: {used_tokens}/{total_tokens}[/]", "system")
+            f"[bold]Tokens used/total: {used_tokens}/{total_tokens}, " +
+            f"Time used: [green]{time_elapsed}s[/].",
+            "system"
+        )
     except Exception as e:
         report("[red bold]Error: [/]" + str(e), "system")
         log_print(str(e), role="Error")
