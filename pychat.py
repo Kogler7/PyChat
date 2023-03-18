@@ -1,7 +1,9 @@
 import os
 import json
 import datetime
+import time
 
+from rich.live import Live
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -48,7 +50,7 @@ def report(content: str, role: str = "openai", end='\n'):
 
 
 def initialize():
-    for dir, dirname, names in os.walk(os.path.dirname(__file__)):
+    for dir, _, names in os.walk(os.path.dirname(__file__)):
         for name in names:
             if ".key" in name:
                 global key_path
@@ -79,7 +81,7 @@ def initialize():
         import openai
         openai.api_key = read_key(key_path)
     report(
-        "[bold]Hello! I'm available now. How can I help you? "+
+        "[bold]Hello! I'm available now. How can I help you? " +
         "You can [yellow]type your question below[/].")
 
 
@@ -167,6 +169,22 @@ def parse_command(content: str):
             get_response(question, assist=record)
         except Exception as e:
             report("[red bold]Error: [/]" + str(e), "system")
+    elif command[:4] == "read":
+        path = command[5:].strip()
+        path = os.path.abspath(os.path.join(os.path.dirname(__file__), path))
+        report(f"Reading file: [underline]{path}[/].", "system")
+        try:
+            with open(path, "r", encoding='utf-8') as f:
+                content = f.read()
+                report(
+                    f"[bold]Record <{len(record_list)}>, Length <{len(content)}>[/]: ", "system")
+                console.print(Markdown(content))
+                record_list.append([
+                    {"role": "user", "content": "请根据以下内容作答。"},
+                    {"role": "assistant", "content": content}
+                ])
+        except Exception as e:
+            report("[red bold]Error: [/]" + str(e), "system")
     elif command[:4] == "help":
         report("Available commands:", "system")
         report("    \\exit  - Exit the chatbot", "system")
@@ -180,6 +198,60 @@ def parse_command(content: str):
             "    \\ctx  \[on/off/new]        - Turn on/off context mode", "system")
     else:
         report("Invalid command", "system")
+
+
+def get_stream_rsp(question: str, role: str = None, assist=None):
+    try:
+        rsp = None
+        start_time = datetime.datetime.now()
+        log_print(question, role="Client")
+        messages = [
+            {"role": "system", "content": role if role is not None else system_role}]
+        if assist is not None:
+            messages += assist
+        elif with_context:
+            messages += assist_list
+        messages += [{"role": "user", "content": question}]
+        with console.status("[bold green]Generating answer..."):
+            import openai
+            rsp = openai.ChatCompletion.create(
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                messages=messages,
+                stream=True
+            )
+        content = ""
+        used_tokens = 0
+        report(
+            f"[bold]Record <{len(record_list)}>[/]: ")
+        with Live(refresh_per_second=2) as live:
+            for chuck in rsp:
+                delta = chuck["choices"][0]["delta"]
+                if 'content' in delta:
+                    delta = delta['content']
+                    content += delta
+                    used_tokens += 1
+                    live.update(Markdown(content), refresh=True)
+        log_print(content, role="OpenAI")
+        record_list.append([
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": content}
+        ])
+        time_elapsed = datetime.datetime.now() - start_time
+        time_elapsed = int(time_elapsed.total_seconds())
+        if with_context and not context_locked:
+            assist_list.append({"role": "user", "content": question})
+            assist_list.append({"role": "assistant", "content": content})
+        global total_tokens
+        total_tokens += used_tokens
+        report(
+            f"[bold]Tokens used/total: {used_tokens}/{total_tokens}, " +
+            f"Time used: [green]{time_elapsed}s[/].",
+            "system"
+        )
+    except Exception as e:
+        report("[red bold]Error: [/]" + str(e), "system")
 
 
 def get_response(question: str, role: str = None, assist=None):
@@ -208,7 +280,7 @@ def get_response(question: str, role: str = None, assist=None):
         time_elapsed = int(time_elapsed.total_seconds())
         content = choices[0]["message"]["content"]
         report(
-            f"[bold]Record <{len(record_list)}>[/]: ")
+            f"[bold]Record <{len(record_list)}>, Length <{len(content)}>[/]: ")
         console.print(Markdown(content))
         log_print(content, role="OpenAI")
         record_list.append([
@@ -238,8 +310,11 @@ if __name__ == "__main__":
         if exit_flag:
             break
         report("", "client", end="")
-        client_input = input()
+        client_input = ''
+        while client_input == '':
+            client_input = input()
         if client_input.startswith('\\'):
             parse_command(client_input)
         else:
-            get_response(client_input, system_role)
+            # get_response(client_input, system_role)
+            get_stream_rsp(client_input, system_role)
